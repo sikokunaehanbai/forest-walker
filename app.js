@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.2";
+const VERSION = "v0.3";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -205,11 +205,30 @@ let memoMarks = {};
 function saveMemos() { ls.set("fw-memos", memos); }
 function renderMemos() {
   Object.values(memoMarks).forEach(m => m.remove()); memoMarks = {};
+  renderMemoList();
   if (!showMemo) return;
   for (const m of memos) {
-    const el = document.createElement("div"); el.className = "pin"; el.style.background = m.color || COLORS[0];
+    if (!isFinite(m.lng) || !isFinite(m.lat)) continue;
+    const el = document.createElement("div"); el.className = "pinw";
+    const col = m.color || COLORS[0];
+    const t = (m.text || "").replace(/\s+/g, " ").trim();
+    el.innerHTML = `<svg viewBox="0 0 28 40" width="34" height="48"><path d="M14 38 C14 38 2 24 2 14 A12 12 0 0 1 26 14 C26 24 14 38 14 38Z" fill="${col}" stroke="#fff" stroke-width="2.5"/><circle cx="14" cy="14" r="4.5" fill="#fff"/></svg>` +
+      (t ? `<span class="pt">${esc(t.length > 14 ? t.slice(0, 14) + "…" : t)}</span>` : "");
     el.onclick = ev => { ev.stopPropagation(); memoDialog(m.lng, m.lat, m); };
-    memoMarks[m.id] = new maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, 4] }).setLngLat([m.lng, m.lat]).addTo(map);
+    memoMarks[m.id] = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([m.lng, m.lat]).addTo(map);
+  }
+}
+function renderMemoList() {
+  const box = $("memoList"); if (!box) return;
+  $("memoCount").textContent = memos.length;
+  box.innerHTML = memos.length ? "" : '<div class="note">まだメモがありません。</div>';
+  for (const m of memos.slice().reverse()) {
+    const row = document.createElement("div"); row.className = "muni";
+    const t = (m.text || "(文字なし)").replace(/\s+/g, " ");
+    row.innerHTML = `<i style="width:14px;height:14px;border-radius:50%;background:${m.color || COLORS[0]};display:inline-block"></i><span>${esc(t.length > 40 ? t.slice(0, 40) + "…" : t)}</span>`;
+    const b = document.createElement("button"); b.textContent = "表示";
+    b.onclick = () => { $("menu").classList.add("hidden"); map.flyTo({ center: [m.lng, m.lat], zoom: Math.max(map.getZoom(), 17), duration: 800 }); };
+    row.append(b); box.append(row);
   }
 }
 function openDlg(html) { $("dlgBox").innerHTML = html; $("dlg").classList.remove("hidden"); }
@@ -435,7 +454,7 @@ $("spInput").onkeydown = e => { if (e.key === "Enter") { const f = $("spRes").qu
 $("spMuni").onchange = () => { ls.set("fw-smuni", $("spMuni").value); doSearch(); };
 
 /* ---------- 起動 ---------- */
-map.on("load", async () => {
+map.once("style.load", async () => {
   try { MUNIS = await (await fetch("tiles/index.json", { cache: "no-cache" })).json(); } catch (e) { MUNIS = ls.get("fw-index", []); }
   if (MUNIS.length) ls.set("fw-index", MUNIS);
   ensureMunis();

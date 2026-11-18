@@ -54,3 +54,6 @@ button{font:inherit;cursor:pointer}
 .rs{padding:12px 6px;border-bottom:1px solid #ddd6c0;font-size:16px;display:flex;justify-content:space-between;gap:8px;cursor:pointer}
 .rs small{color:#667;font-size:12px;white-space:nowrap}
 .rs:active{background:#e8e2cf}
+.pinw{display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));z-index:3}
+.pinw svg{display:block}
+.pinw .pt{margin-top:-2px;background:rgba(255,255,255,.95);color:#111;font-size:12px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(0,0,0,.4);order:-1;margin:0 0 2px}
