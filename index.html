@@ -55,6 +55,11 @@
   <label class="row">筆界の色
     <select id="fudeColor"><option value="#ffe14d">黄</option><option value="#ff5a3c">赤</option><option value="#ffffff">白</option><option value="#1c5d99">青</option></select>
   </label>
+  <h3>施業地(境界データ)</h3>
+  <p class="note">QGISで作ったKML(またはGeoJSON)を読み込むと、境界が赤い太線で表示されます。</p>
+  <button class="wide" id="areaBtn">KML / GeoJSON を読み込む</button>
+  <input type="file" id="areaFile" multiple hidden>
+  <div id="areaList"></div>
   <h3>圏外で使う準備</h3>
   <p class="note">Wi-Fiのある場所で保存しておくと、山の中でも使えます。</p>
   <button class="wide" id="saveBase">いま見ている範囲の地図を保存</button>
@@ -71,5 +76,6 @@
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
 <script src="app.js"></script>
+<script src="kml.js"></script>
 </body>
 </html>
