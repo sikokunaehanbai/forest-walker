@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.8";
+const VERSION = "v0.8.2";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -17,7 +17,7 @@ const BASES = {
 };
 let base = ls.get("fw-base", "std");
 if (!BASES[base]) base = "std";
-let fudeColor = ls.get("fw-fudecolor", "#ffe14d");
+let fudeColor = ls.get("fw-fudecolor", "#ff5a3c");
 let showFude = ls.get("fw-showfude", true);
 let showMemo = ls.get("fw-showmemo", true);
 

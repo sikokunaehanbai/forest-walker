@@ -140,7 +140,12 @@
     if (last) { fit(last); setStatus("「" + last.name + "」を表示しました", 3000); }
   }
 
-  const start = () => { initLayers(); map.on("moveend", toTop); takeShared(); };
-  if (map.isStyleLoaded()) start(); else map.once("style.load", start);
+  // 地図の準備ができるまで、層の追加を繰り返し試す
+  let tries = 0;
+  const iv = setInterval(() => {
+    try { initLayers(); } catch (e) { if (++tries < 300) return; }
+    clearInterval(iv);
+    if (map.getSource("areas")) { map.on("moveend", toTop); takeShared(); }
+  }, 200);
   renderList();
 })();
