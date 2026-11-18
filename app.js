@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.6";
+const VERSION = "v0.7";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -13,6 +13,7 @@ const BASES = {
   std:   { url: GSI + "std/{z}/{x}/{y}.png",           max: 18 },
   photo: { url: GSI + "seamlessphoto/{z}/{x}/{y}.jpg", max: 18 },
   cs:    { url: "https://rinya-ehime.geospatial.jp/tile/rinya/2024/csmap_Ehime/{z}/{x}/{y}.png", max: 18, tms: true, mb: 0.19 },   // 愛媛県 林野 微地形図(CS立体図)
+  ls:    { url: "https://rinya-ehime.geospatial.jp/tile/rinya/2024/ls_standtype_Ehime/{z}/{x}/{y}.png", max: 18, tms: true, mb: 0.19 }   // 愛媛県 林野 レーザー林相図
 };
 let base = ls.get("fw-base", "std");
 if (!BASES[base]) base = "std";
@@ -22,7 +23,7 @@ let showMemo = ls.get("fw-showmemo", true);
 
 const style = { version: 8, sources: {}, layers: [] };
 for (const k in BASES) {
-  const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>";
+  const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : k === "ls" ? "愛媛県 レーザー林相図" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>";
   style.sources["b-" + k] = Object.assign({ type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max, attribution: att }, BASES[k].tms ? { scheme: "tms" } : {});
   style.layers.push({ id: "b-" + k, type: "raster", source: "b-" + k, layout: { visibility: k === base ? "visible" : "none" } });
 }
