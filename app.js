@@ -1,29 +1,30 @@
 "use strict";
-const VERSION = "v0.3";
+const VERSION = "v0.5";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
-$("ver").textContent = "フォレストウォーカー " + VERSION + "  /  地図:国土地理院";
+$("ver").textContent = "フォレストウォーカー " + VERSION + "  /  地図:国土地理院・愛媛県";
 
 /* ---------- 基本設定 ---------- */
 const GSI = "https://cyberjapandata.gsi.go.jp/xyz/";
 const BASES = {
-  std:    { url: GSI + "std/{z}/{x}/{y}.png",            max: 18 },
-  photo:  { url: GSI + "seamlessphoto/{z}/{x}/{y}.jpg",  max: 18 },
-  relief: { url: GSI + "relief/{z}/{x}/{y}.png",         max: 15 },
-  slope:  { url: GSI + "slopemap/{z}/{x}/{y}.png",       max: 15 }
+  std:   { url: GSI + "std/{z}/{x}/{y}.png",           max: 18 },
+  photo: { url: GSI + "seamlessphoto/{z}/{x}/{y}.jpg", max: 18 },
+  cs:    { url: "https://rinya-ehime.geospatial.jp/tile/rinya/2024/csmap_Ehime/{z}/{x}/{y}.png", max: 18, tms: true, mb: 0.19 },   // 愛媛県 林野 微地形図(CS立体図)
+  cg:    { url: "csmap://{z}/{x}/{y}",                  max: 15 }   // 国土地理院の標高タイルから端末内で作るCS立体図風の地図(予備)
 };
 let base = ls.get("fw-base", "std");
+if (!BASES[base]) base = "std";
 let fudeColor = ls.get("fw-fudecolor", "#ffe14d");
 let showFude = ls.get("fw-showfude", true);
 let showMemo = ls.get("fw-showmemo", true);
 
 const style = { version: 8, sources: {}, layers: [] };
 for (const k in BASES) {
-  style.sources["b-" + k] = { type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max,
-    attribution: "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>" };
+  const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>" + (k === "cg" ? "(標高タイルから作成)" : "");
+  style.sources["b-" + k] = Object.assign({ type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max, attribution: att }, BASES[k].tms ? { scheme: "tms" } : {});
   style.layers.push({ id: "b-" + k, type: "raster", source: "b-" + k, layout: { visibility: k === base ? "visible" : "none" } });
 }
 
@@ -271,6 +272,7 @@ function setBase(b) {
   document.querySelectorAll("#baseSeg button").forEach(x => x.classList.toggle("on", x.dataset.b === b));
 }
 document.querySelectorAll("#baseSeg button").forEach(x => x.onclick = () => setBase(x.dataset.b));
+document.querySelectorAll("#baseSeg button").forEach(x => x.classList.toggle("on", x.dataset.b === base));
 $("chkFude").checked = showFude; $("chkMemo").checked = showMemo; $("fudeColor").value = fudeColor;
 $("chkFude").onchange = e => {
   showFude = e.target.checked; ls.set("fw-showfude", showFude);
@@ -332,17 +334,31 @@ function lon2x(lon, z) { return Math.floor((lon + 180) / 360 * 2 ** z); }
 function lat2y(lat, z) { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z); }
 $("saveBase").onclick = async () => {
   if (!("caches" in window)) { alert("この環境ではオフライン保存が使えません"); return; }
-  const b = map.getBounds(), cfg = BASES[base], z0 = Math.max(10, Math.floor(map.getZoom())), z1 = Math.min(cfg.max, 17);
-  const list = [];
-  for (let z = z0; z <= z1; z++) {
-    const x0 = lon2x(b.getWest(), z), x1 = lon2x(b.getEast(), z), y0 = lat2y(b.getNorth(), z), y1 = lat2y(b.getSouth(), z);
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) list.push(cfg.url.replace("{z}", z).replace("{x}", x).replace("{y}", y));
+  const b = map.getBounds(), cfg = BASES[base], z0 = Math.min(cfg.max, Math.max(10, Math.floor(map.getZoom()))), z1 = Math.min(cfg.max, cfg.mb ? 16 : 17);
+  const list = [], opt = new Set();
+  function tilesAt(z, pad, f) {
+    const x0 = lon2x(b.getWest(), z) - pad, x1 = lon2x(b.getEast(), z) + pad, y0 = lat2y(b.getNorth(), z) - pad, y1 = lat2y(b.getSouth(), z) + pad;
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) f(z, x, y);
   }
+  if (base === "cg") {   // CS立体図風は、元になる標高タイルを保存する
+    const seen = new Set(), add = (u, o) => { if (!seen.has(u)) { seen.add(u); list.push(u); if (o) opt.add(u); } };
+    for (let z = z0; z <= z1; z++) {
+      if (z <= 14) tilesAt(z, 1, (z, x, y) => add(GSI + "dem_png/" + z + "/" + x + "/" + y + ".png"));
+      else {
+        tilesAt(15, 1, (z, x, y) => add(GSI + "dem5a_png/15/" + x + "/" + y + ".png", true));   // 5m標高(無い場所もある)
+        tilesAt(14, 1, (z, x, y) => add(GSI + "dem_png/14/" + x + "/" + y + ".png"));
+      }
+    }
+  } else {
+    for (let z = z0; z <= z1; z++) tilesAt(z, 0, (z, x, y) => list.push(cfg.url.replace("{z}", z).replace("{x}", x).replace("{y}", cfg.tms ? 2 ** z - 1 - y : y)));
+  }
+  const mbEach = cfg.mb || 0.03;
+  if (list.length * mbEach > 150) { alert("範囲が広すぎます(" + list.length + "枚・約" + Math.round(list.length * mbEach) + "MB)。地図を拡大してから、もう一度保存してください。"); return; }
   if (list.length > 1800) { alert("範囲が広すぎます(" + list.length + "枚)。地図を拡大してから、もう一度保存してください。"); return; }
-  if (!confirm("現在の地図(" + $("baseSeg").querySelector(".on").textContent + ")を保存します。\n約" + list.length + "枚(目安 " + Math.round(list.length * 0.03 * 10) / 10 + "MB前後)。よろしいですか?")) return;
+  if (!confirm("現在の地図(" + $("baseSeg").querySelector(".on").textContent + ")を保存します。\n約" + list.length + "枚(目安 " + Math.round(list.length * mbEach * 10) / 10 + "MB前後)。よろしいですか?")) return;
   const cache = await caches.open("fw-gsi"); let n = 0, ng = 0, i = 0;
   const btn = $("saveBase"), old = btn.textContent; btn.disabled = true;
-  async function w() { while (i < list.length) { const u = list[i++]; try { if (!(await cache.match(u))) { const r = await fetch(u); if (r.ok) await cache.put(u, r); else ng++; } } catch (e) { ng++; } n++; btn.textContent = "保存中 " + n + "/" + list.length; } }
+  async function w() { while (i < list.length) { const u = list[i++]; try { if (!(await cache.match(u))) { const r = await fetch(u); if (r.ok) await cache.put(u, r); else if (!opt.has(u)) ng++; } } catch (e) { ng++; } n++; btn.textContent = "保存中 " + n + "/" + list.length; } }
   await Promise.all([w(), w(), w(), w(), w(), w()]);
   btn.disabled = false; btn.textContent = old; setStatus("地図を保存しました" + (ng ? "(" + ng + "枚は取得できず)" : ""), 3500);
 };
