@@ -47,3 +47,10 @@ button{font:inherit;cursor:pointer}
 .pl{background:rgba(255,255,255,.85);border:1px solid rgba(0,0,0,.45);border-radius:3px;font-size:11px;line-height:1;padding:1px 3px;color:#111;white-space:nowrap;pointer-events:none;font-weight:600}
 .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.6);cursor:pointer}
 .maplibregl-ctrl-attrib{font-size:10px}
+#top button#searchBtn{width:48px}
+#sp{position:fixed;left:0;right:0;top:0;background:#f6f3ea;z-index:9;padding:calc(14px + env(safe-area-inset-top)) 14px 14px;box-shadow:0 4px 18px rgba(0,0,0,.4);max-height:80vh;overflow:auto;border-radius:0 0 18px 18px}
+#sp h3{margin:0 40px 8px 0;font-size:16px}
+#sp select,#sp input{width:100%;padding:12px;font-size:17px;border:1px solid #b9b39b;border-radius:10px;margin-bottom:8px;background:#fff;font-family:inherit}
+.rs{padding:12px 6px;border-bottom:1px solid #ddd6c0;font-size:16px;display:flex;justify-content:space-between;gap:8px;cursor:pointer}
+.rs small{color:#667;font-size:12px;white-space:nowrap}
+.rs:active{background:#e8e2cf}

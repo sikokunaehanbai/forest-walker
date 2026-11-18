@@ -1,4 +1,4 @@
-const V = "fw-shell-v1";
+const V = "fw-shell-v2";
 const SHELL = ["./", "index.html", "style.css", "app.js", "lib/maplibre-gl.js", "lib/maplibre-gl.css", "lib/pmtiles.js", "manifest.webmanifest", "icon.svg", "icon-192.png"];
 const blobs = new Map();
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });

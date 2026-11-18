@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.1";
+const VERSION = "v0.2";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -93,11 +93,10 @@ function dist(a, b) {
 function fmtDist(m) { return m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2) + " km"; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-function showParcel(f) {
-  const p = f.properties;
+function showParcel(f) { showParcelInfo(f.properties, geomCenter(f.geometry)); }
+function showParcelInfo(p, ctr) {
   sel = { o: p.o || "", k: p.k || "", c: p.c || "" };
   applySel();
-  const ctr = geomCenter(f.geometry);
   const place = [p.o, p.d, p.k].filter(Boolean).join(" ");
   let rows = `<div class="kv"><b>大字</b><span>${esc(p.o || "-")}</span>`;
   if (p.d) rows += `<b>丁目</b><span>${esc(p.d)}</span>`;
@@ -305,6 +304,7 @@ async function savePm(m, btn) {
     const total = +r.headers.get("Content-Length") || m.bytes, rd = r.body.getReader(), parts = []; let got = 0;
     for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; btn.textContent = Math.round(got / total * 100) + "%"; }
     await cache.put(url, new Response(new Blob(parts), { headers: { "Content-Type": "application/octet-stream", "Content-Length": String(got) } }));
+    try { btn.textContent = "検索用…"; await fetch("search/" + m.code + ".json"); } catch (e) {}
     btn.className = "done"; btn.textContent = "保存済 ✓";
   } catch (e) { btn.textContent = "失敗"; }
   btn.disabled = false;
@@ -327,6 +327,112 @@ $("saveBase").onclick = async () => {
   await Promise.all([w(), w(), w(), w(), w(), w()]);
   btn.disabled = false; btn.textContent = old; setStatus("地図を保存しました" + (ng ? "(" + ng + "枚は取得できず)" : ""), 3500);
 };
+
+/* ---------- 地番検索 ---------- */
+const IDX = {};   // code -> [{o,d,k,c:[],x:[],y:[]}]
+function norm(s) {
+  return String(s).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[－‐‑–—―ー−]/g, "-").replace(/[\s　]+/g, " ").trim();
+}
+function parseQuery(q) {
+  q = norm(q);
+  if (!q) return { names: [], num: "" };
+  let toks = q.split(" ");
+  if (toks.length === 1) { const m = /^(\D+?)((?:[甲乙丙丁])?\d[\d-]*)$/.exec(toks[0]); if (m) toks = [m[1], m[2]]; }
+  const names = [], nums = [];
+  for (const t of toks) (/\d/.test(t) ? nums : names).push(t);
+  return { names, num: nums.length ? nums[nums.length - 1] : "" };
+}
+async function loadIdx(code) {
+  if (IDX[code]) return IDX[code];
+  const r = await fetch("search/" + code + ".json");
+  if (!r.ok) throw new Error("index");
+  const j = await r.json();
+  IDX[code] = j.a.map(([o, d, k, c, dx, dy]) => {
+    const x = new Array(dx.length), y = new Array(dy.length); let ax = 0, ay = 0;
+    for (let i = 0; i < dx.length; i++) { ax += dx[i]; ay += dy[i]; x[i] = ax / 1e5; y[i] = ay / 1e5; }
+    return { o, d, k, c, cn: c.map(norm), x, y, name: o + d + k };
+  });
+  return IDX[code];
+}
+function areaMatch(a, names) {
+  return names.every(t => a.name.includes(t) || a.name.includes(t.replace(/^大字/, "")));
+}
+function runSearch(code, qs, idx) {
+  const { names, num } = parseQuery(qs), out = [];
+  if (!names.length && !num) return { kind: "none" };
+  if (!num) {
+    for (const a of idx) if (areaMatch(a, names)) out.push(a);
+    return { kind: "areas", list: out.slice(0, 40), total: out.length };
+  }
+  for (const a of idx) {
+    if (names.length && !areaMatch(a, names)) continue;
+    for (let i = 0; i < a.cn.length; i++) {
+      const c = a.cn[i], s = c.replace(/^[甲乙丙丁]/, "");
+      let r = -1;
+      if (c === num || s === num) r = 0;
+      else if (c.startsWith(num + "-") || s.startsWith(num + "-")) r = 1;
+      else if (num.length >= 2 && (c.startsWith(num) || s.startsWith(num))) r = 2;
+      if (r >= 0) out.push({ r, a, i });
+    }
+  }
+  out.sort((p, q) => p.r - q.r || p.a.cn[p.i].length - q.a.cn[q.i].length);
+  return { kind: "parcels", list: out.slice(0, 40), total: out.length };
+}
+function detectMuni() {
+  const c = map.getCenter();
+  const m = MUNIS.find(m => c.lng >= m.bbox[0] && c.lng <= m.bbox[2] && c.lat >= m.bbox[1] && c.lat <= m.bbox[3]);
+  return m ? m.code : "38386";
+}
+function openSearch() {
+  closeSheet(); $("sp").classList.remove("hidden");
+  const sel2 = $("spMuni");
+  if (!sel2.options.length) for (const m of MUNIS) sel2.add(new Option(m.name, m.code));
+  sel2.value = detectMuni();
+  doSearch(); setTimeout(() => $("spInput").focus(), 50);
+}
+let spTimer;
+async function doSearch() {
+  const code = $("spMuni").value, qs = $("spInput").value, box = $("spRes");
+  if (!code) return;
+  let idx;
+  if (!IDX[code]) { box.innerHTML = '<div class="note">読み込み中…</div>'; }
+  try { idx = await loadIdx(code); } catch (e) { box.innerHTML = '<div class="note">検索データを読み込めません。通信状態を確認してください(オフラインでは、「保存」した市町のみ検索できます)。</div>'; return; }
+  if (code !== $("spMuni").value || qs !== $("spInput").value) return;
+  const r = runSearch(code, qs, idx);
+  if (r.kind === "none") { box.innerHTML = ""; return; }
+  if (!r.total) { box.innerHTML = '<div class="note">見つかりませんでした。大字名の一部だけでも試してください。</div>'; return; }
+  box.innerHTML = "";
+  if (r.kind === "areas") {
+    for (const a of r.list) {
+      const row = document.createElement("div"); row.className = "rs";
+      row.innerHTML = `<span>${esc([a.o, a.d, a.k].filter(Boolean).join(" "))}</span><small>${a.c.length}筆</small>`;
+      row.onclick = () => { $("spInput").value = (a.o || a.d || a.k) + " "; $("spInput").focus(); doSearch(); };
+      box.append(row);
+    }
+    if (r.total > r.list.length) box.insertAdjacentHTML("beforeend", `<div class="note">ほか${r.total - r.list.length}件。もう少し絞ってください。</div>`);
+  } else {
+    for (const it of r.list) {
+      const a = it.a, i = it.i, row = document.createElement("div"); row.className = "rs";
+      const place = [a.o, a.d, a.k].filter(Boolean).join(" ");
+      row.innerHTML = `<span>${esc(place)} <b>${esc(a.c[i])}</b></span><small>${it.r === 0 ? "" : "近い番号"}</small>`;
+      row.onclick = () => gotoParcel({ o: a.o, d: a.d, k: a.k, c: a.c[i] }, [a.x[i], a.y[i]]);
+      box.append(row);
+    }
+    if (r.total > r.list.length) box.insertAdjacentHTML("beforeend", `<div class="note">ほか${r.total - r.list.length}件。大字名を加えて絞ってください。</div>`);
+  }
+}
+function gotoParcel(p, ctr) {
+  $("sp").classList.add("hidden"); $("spInput").blur();
+  if (follow) { follow = false; $("locBtn").classList.remove("on"); }
+  map.flyTo({ center: ctr, zoom: Math.max(map.getZoom(), 18), duration: 900 });
+  showParcelInfo(p, ctr);
+}
+$("searchBtn").onclick = openSearch;
+$("spClose").onclick = () => { $("sp").classList.add("hidden"); $("spInput").blur(); };
+$("spInput").oninput = () => { clearTimeout(spTimer); spTimer = setTimeout(doSearch, 150); };
+$("spInput").onkeydown = e => { if (e.key === "Enter") { const f = $("spRes").querySelector(".rs"); if (f) f.click(); } };
+$("spMuni").onchange = () => { ls.set("fw-smuni", $("spMuni").value); doSearch(); };
 
 /* ---------- 起動 ---------- */
 map.on("load", async () => {

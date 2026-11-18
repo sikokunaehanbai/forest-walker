@@ -17,6 +17,7 @@
 <div id="top">
   <button id="menuBtn" aria-label="メニュー">☰</button>
   <div id="title">🌲 フォレストウォーカー</div>
+  <button id="searchBtn" aria-label="地番検索">🔍</button>
 </div>
 <div id="status"></div>
 
@@ -28,6 +29,15 @@
 <div id="sheet" class="hidden">
   <div class="grab" id="sheetClose">×</div>
   <div id="sheetBody"></div>
+</div>
+
+<div id="sp" class="hidden">
+  <div class="grab" id="spClose">×</div>
+  <h3>地番を探す</h3>
+  <select id="spMuni"></select>
+  <input id="spInput" placeholder="大字 地番(例:中津 1947)" autocomplete="off" inputmode="text">
+  <div class="note" id="spHint">大字名と地番を空白で区切って入力します。大字名だけでも探せます。</div>
+  <div id="spRes"></div>
 </div>
 
 <div id="menu" class="hidden">
