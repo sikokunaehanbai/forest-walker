@@ -1,0 +1,49 @@
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:#14301f;color:#1a2a1f;overscroll-behavior:none}
+#map{position:fixed;inset:0}
+button{font:inherit;cursor:pointer}
+#top{position:fixed;left:10px;right:10px;top:calc(10px + env(safe-area-inset-top));display:flex;gap:8px;z-index:5}
+#top button{width:48px;height:48px;border-radius:12px;border:0;background:#14301f;color:#fff;font-size:22px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#title{flex:1;height:48px;border-radius:12px;background:rgba(20,48,31,.92);color:#fff;display:flex;align-items:center;padding:0 14px;font-size:16px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#status{position:fixed;left:10px;top:calc(66px + env(safe-area-inset-top));z-index:5;background:rgba(20,48,31,.88);color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;display:none}
+#fabs{position:fixed;right:10px;bottom:calc(34px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:5}
+#fabs button{width:56px;height:56px;border-radius:50%;border:0;background:#e9a35b;color:#1a1208;font-size:24px;box-shadow:0 3px 10px rgba(0,0,0,.45)}
+#fabs button.on{background:#2f8f4e;color:#fff}
+#sheet,#menu{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;z-index:8;padding:16px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.35);max-height:78vh;overflow:auto}
+#menu{top:0;border-radius:0;max-height:none;background:#f6f3ea;z-index:9;padding-top:calc(16px + env(safe-area-inset-top))}
+.hidden{display:none!important}
+.grab{position:absolute;right:14px;top:10px;font-size:26px;width:40px;height:40px;text-align:center;line-height:40px;color:#666;cursor:pointer}
+#sheet h2{margin:0 40px 2px 0;font-size:22px}
+#sheet .sub{color:#667;font-size:13px;margin-bottom:10px}
+.kv{display:grid;grid-template-columns:90px 1fr;gap:4px 8px;font-size:15px;margin:8px 0}
+.kv b{color:#456;font-weight:600}
+.act{display:flex;gap:8px;margin-top:12px}
+.act button,.wide{flex:1;padding:13px;border-radius:12px;border:0;background:#14301f;color:#fff;font-size:15px;font-weight:600}
+.act button.alt{background:#e9a35b;color:#1a1208}
+.act button.warn{background:#b3361f}
+.wide{display:block;width:100%;margin:8px 0}
+#menu h2{margin:0 0 6px}
+#menu h3{margin:20px 0 6px;font-size:14px;color:#456;border-bottom:1px solid #d9d3c0;padding-bottom:4px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:70px;padding:12px 6px;border-radius:10px;border:1px solid #14301f;background:#fff;color:#14301f}
+.seg button.on{background:#14301f;color:#fff}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;font-size:15px;justify-content:space-between}
+.row input[type=checkbox]{width:22px;height:22px}
+.row select{padding:8px;border-radius:8px}
+.note{font-size:12px;color:#667;margin:6px 0}
+.muni{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #e2dcc8;font-size:14px}
+.muni span{flex:1}
+.muni small{color:#778}
+.muni button{padding:7px 12px;border-radius:8px;border:1px solid #14301f;background:#fff;font-size:13px}
+.muni button.done{background:#2f8f4e;color:#fff;border-color:#2f8f4e}
+#dlg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20;display:flex;align-items:center;justify-content:center;padding:18px}
+#dlg .box{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:420px;max-height:88vh;overflow:auto}
+#dlg h3{margin:0 0 10px}
+#dlg textarea,#dlg input[type=text]{width:100%;padding:10px;font-size:16px;border:1px solid #bbb;border-radius:8px;margin:6px 0;font-family:inherit}
+#dlg textarea{min-height:90px}
+.colors{display:flex;gap:10px;margin:8px 0}
+.colors i{width:34px;height:34px;border-radius:50%;border:3px solid transparent;display:block}
+.colors i.on{border-color:#000}
+.pl{background:rgba(255,255,255,.85);border:1px solid rgba(0,0,0,.45);border-radius:3px;font-size:11px;line-height:1;padding:1px 3px;color:#111;white-space:nowrap;pointer-events:none;font-weight:600}
+.pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.6);cursor:pointer}
+.maplibregl-ctrl-attrib{font-size:10px}

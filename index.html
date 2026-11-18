@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14301f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>フォレストウォーカー</title>
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+
+<div id="top">
+  <button id="menuBtn" aria-label="メニュー">☰</button>
+  <div id="title">🌲 フォレストウォーカー</div>
+</div>
+<div id="status"></div>
+
+<div id="fabs">
+  <button id="locBtn" aria-label="現在地">◎</button>
+  <button id="memoBtn" aria-label="メモ">📍</button>
+</div>
+
+<div id="sheet" class="hidden">
+  <div class="grab" id="sheetClose">×</div>
+  <div id="sheetBody"></div>
+</div>
+
+<div id="menu" class="hidden">
+  <div class="grab" id="menuClose">×</div>
+  <h2>フォレストウォーカー</h2>
+  <h3>地図</h3>
+  <div class="seg" id="baseSeg">
+    <button data-b="std" class="on">標準</button>
+    <button data-b="photo">航空写真</button>
+    <button data-b="relief">色別標高</button>
+    <button data-b="slope">傾斜</button>
+  </div>
+  <label class="row"><input type="checkbox" id="chkFude" checked> 筆界・地番を表示</label>
+  <label class="row"><input type="checkbox" id="chkMemo" checked> メモを表示</label>
+  <label class="row">筆界の色
+    <select id="fudeColor"><option value="#ffe14d">黄</option><option value="#ff5a3c">赤</option><option value="#ffffff">白</option><option value="#1c5d99">青</option></select>
+  </label>
+  <h3>圏外で使う準備</h3>
+  <p class="note">Wi-Fiのある場所で保存しておくと、山の中でも使えます。</p>
+  <button class="wide" id="saveBase">いま見ている範囲の地図を保存</button>
+  <div id="muniList"></div>
+  <h3>メモ</h3>
+  <button class="wide" id="exportMemo">メモを書き出す(コピー)</button>
+  <button class="wide" id="importMemo">メモを取り込む(貼り付け)</button>
+  <p class="note" id="ver"></p>
+</div>
+
+<div id="dlg" class="hidden"><div class="box" id="dlgBox"></div></div>
+
+<script src="lib/maplibre-gl.js"></script>
+<script src="lib/pmtiles.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
