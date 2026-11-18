@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.5";
+const VERSION = "v0.6";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -13,7 +13,6 @@ const BASES = {
   std:   { url: GSI + "std/{z}/{x}/{y}.png",           max: 18 },
   photo: { url: GSI + "seamlessphoto/{z}/{x}/{y}.jpg", max: 18 },
   cs:    { url: "https://rinya-ehime.geospatial.jp/tile/rinya/2024/csmap_Ehime/{z}/{x}/{y}.png", max: 18, tms: true, mb: 0.19 },   // 愛媛県 林野 微地形図(CS立体図)
-  cg:    { url: "csmap://{z}/{x}/{y}",                  max: 15 }   // 国土地理院の標高タイルから端末内で作るCS立体図風の地図(予備)
 };
 let base = ls.get("fw-base", "std");
 if (!BASES[base]) base = "std";
@@ -23,7 +22,7 @@ let showMemo = ls.get("fw-showmemo", true);
 
 const style = { version: 8, sources: {}, layers: [] };
 for (const k in BASES) {
-  const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>" + (k === "cg" ? "(標高タイルから作成)" : "");
+  const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>";
   style.sources["b-" + k] = Object.assign({ type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max, attribution: att }, BASES[k].tms ? { scheme: "tms" } : {});
   style.layers.push({ id: "b-" + k, type: "raster", source: "b-" + k, layout: { visibility: k === base ? "visible" : "none" } });
 }
@@ -340,16 +339,7 @@ $("saveBase").onclick = async () => {
     const x0 = lon2x(b.getWest(), z) - pad, x1 = lon2x(b.getEast(), z) + pad, y0 = lat2y(b.getNorth(), z) - pad, y1 = lat2y(b.getSouth(), z) + pad;
     for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) f(z, x, y);
   }
-  if (base === "cg") {   // CS立体図風は、元になる標高タイルを保存する
-    const seen = new Set(), add = (u, o) => { if (!seen.has(u)) { seen.add(u); list.push(u); if (o) opt.add(u); } };
-    for (let z = z0; z <= z1; z++) {
-      if (z <= 14) tilesAt(z, 1, (z, x, y) => add(GSI + "dem_png/" + z + "/" + x + "/" + y + ".png"));
-      else {
-        tilesAt(15, 1, (z, x, y) => add(GSI + "dem5a_png/15/" + x + "/" + y + ".png", true));   // 5m標高(無い場所もある)
-        tilesAt(14, 1, (z, x, y) => add(GSI + "dem_png/14/" + x + "/" + y + ".png"));
-      }
-    }
-  } else {
+  {
     for (let z = z0; z <= z1; z++) tilesAt(z, 0, (z, x, y) => list.push(cfg.url.replace("{z}", z).replace("{x}", x).replace("{y}", cfg.tms ? 2 ** z - 1 - y : y)));
   }
   const mbEach = cfg.mb || 0.03;
