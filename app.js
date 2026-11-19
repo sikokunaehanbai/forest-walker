@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.8.2";
+const VERSION = "v0.9";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -21,12 +21,12 @@ let fudeColor = ls.get("fw-fudecolor", "#ff5a3c");
 let showFude = ls.get("fw-showfude", true);
 let showMemo = ls.get("fw-showmemo", true);
 
-const style = { version: 8, sources: {}, layers: [] };
-for (const k in BASES) {
+function baseSrc(k) {
   const att = k === "cs" ? "愛媛県 微地形図(CS立体図)" : k === "ls" ? "愛媛県 レーザー林相図" : "<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>国土地理院</a>";
-  style.sources["b-" + k] = Object.assign({ type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max, attribution: att }, BASES[k].tms ? { scheme: "tms" } : {});
-  style.layers.push({ id: "b-" + k, type: "raster", source: "b-" + k, layout: { visibility: k === base ? "visible" : "none" } });
+  return Object.assign({ type: "raster", tiles: [BASES[k].url], tileSize: 256, maxzoom: BASES[k].max, attribution: att }, BASES[k].tms ? { scheme: "tms" } : {});
 }
+// 背景の地図は「いま使っているもの」だけを持つ(切り替えたら古いものは捨ててメモリを空ける)
+const style = { version: 8, sources: { ["b-" + base]: baseSrc(base) }, layers: [{ id: "b-" + base, type: "raster", source: "b-" + base }] };
 
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -34,7 +34,8 @@ maplibregl.addProtocol("pmtiles", protocol.tile);
 const last = ls.get("fw-view", { c: [132.9, 33.65], z: 11 });
 const map = new maplibregl.Map({
   container: "map", style, center: last.c, zoom: last.z, maxZoom: 21, minZoom: 5,
-  attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false
+  attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false,
+  pixelRatio: Math.min(window.devicePixelRatio || 1, 2), maxTileCacheSize: 30, fadeDuration: 100, refreshExpiredTiles: false
 });
 map.touchZoomRotate.disableRotation();
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: "metric" }), "bottom-left");
@@ -138,17 +139,34 @@ function updateLabels() {
   if (!showFude || z < 17) return;
   const ids = fillLayerIds().filter(i => map.getLayer(i));
   if (!ids.length) return;
-  const seen = new Set();
+  const cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight, cx = W / 2, cy = H / 2;
+  const cand = [], seen = new Set();
   for (const f of map.queryRenderedFeatures({ layers: ids })) {
     const p = f.properties; if (!p.c) continue;
     const k = (p.o || "") + "|" + (p.k || "") + "|" + p.c;
     if (seen.has(k)) continue; seen.add(k);
-    if (seen.size > 260) break;
-    const el = document.createElement("div"); el.className = "pl"; el.textContent = p.c;
-    labelMarks.push(new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat(geomCenter(f.geometry)).addTo(map));
+    const ll = geomCenter(f.geometry), pt = map.project(ll);
+    if (pt.x < -20 || pt.y < -10 || pt.x > W + 20 || pt.y > H + 10) continue;
+    cand.push({ c: p.c, ll, x: pt.x, y: pt.y, d: (pt.x - cx) ** 2 + (pt.y - cy) ** 2 });
+  }
+  cand.sort((u, v) => u.d - v.d);   // 画面の中心に近いものから
+  const placed = [];
+  for (const c of cand) {
+    if (labelMarks.length >= 90) break;
+    const w = 11 * c.c.length + 14;   // 文字の幅のめやす
+    if (placed.some(q => Math.abs(q.x - c.x) < (q.w + w) / 2 && Math.abs(q.y - c.y) < 20)) continue;   // 重なるものは出さない
+    placed.push({ x: c.x, y: c.y, w });
+    const el = document.createElement("div"); el.className = "pl"; el.textContent = c.c;
+    labelMarks.push(new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat(c.ll).addTo(map));
   }
 }
 map.on("idle", updateLabels);
+{
+  const cv = map.getCanvas();
+  cv.addEventListener("webglcontextlost", e => { e.preventDefault(); setStatus("地図を復旧しています…"); setTimeout(() => { try { if (map.painter.context.gl.isContextLost()) location.reload(); } catch (x) { location.reload(); } }, 3000); });
+  cv.addEventListener("webglcontextrestored", () => setStatus("", 0));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { map.resize(); map.triggerRepaint(); } });
+}
 
 /* ---------- 現在地 ---------- */
 let myPos = null, watchId = null, follow = false, myMarker = null;
@@ -266,13 +284,30 @@ renderMemos();
 /* ---------- メニュー ---------- */
 $("menuBtn").onclick = () => { $("menu").classList.remove("hidden"); renderMuniList(); };
 $("menuClose").onclick = () => $("menu").classList.add("hidden");
+function firstNonBase() { const l = map.getStyle().layers.find(x => !x.id.startsWith("b-")); return l ? l.id : undefined; }
+function addBase(k) {
+  if (map.getSource("b-" + k)) return;
+  map.addSource("b-" + k, baseSrc(k));
+  map.addLayer({ id: "b-" + k, type: "raster", source: "b-" + k }, firstNonBase());
+}
+function dropBase(k) { if (map.getLayer("b-" + k)) map.removeLayer("b-" + k); if (map.getSource("b-" + k)) map.removeSource("b-" + k); }
 function setBase(b) {
-  base = b; ls.set("fw-base", b);
-  for (const k in BASES) map.setLayoutProperty("b-" + k, "visibility", k === b ? "visible" : "none");
+  const old = base; base = b; ls.set("fw-base", b);
   document.querySelectorAll("#baseSeg button").forEach(x => x.classList.toggle("on", x.dataset.b === b));
+  if (old === b) return;
+  addBase(b);
+  const done = () => { if (base !== old) dropBase(old); };   // 新しい地図が描けたら、古い地図を捨てる
+  map.once("idle", done); setTimeout(done, 4000);
+}
+// 地図の表示がおかしくなったとき用:背景を作り直す
+function resetMap() {
+  dropBase(base); addBase(base);
+  labelMarks.forEach(m => m.remove()); labelMarks = []; lastLabelKey = "";
+  map.triggerRepaint(); setStatus("地図を描き直しました", 2000);
 }
 document.querySelectorAll("#baseSeg button").forEach(x => x.onclick = () => setBase(x.dataset.b));
 document.querySelectorAll("#baseSeg button").forEach(x => x.classList.toggle("on", x.dataset.b === base));
+$("resetMap").onclick = () => { $("menu").classList.add("hidden"); resetMap(); };
 $("chkFude").checked = showFude; $("chkMemo").checked = showMemo; $("fudeColor").value = fudeColor;
 $("chkFude").onchange = e => {
   showFude = e.target.checked; ls.set("fw-showfude", showFude);
