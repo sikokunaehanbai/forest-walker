@@ -70,3 +70,14 @@ button{font:inherit;cursor:pointer}
 #sbar i{flex:1;display:block}
 #sbar i:first-child{background:#000}
 #sbar i:last-child{background:#fff}
+
+#lic{position:fixed;inset:0;z-index:9999;background:#14301f;display:flex;align-items:center;justify-content:center;padding:20px}
+#lic.hidden{display:none}
+.licbox{width:100%;max-width:380px;color:#fff;text-align:center}
+.licbox h2{margin:0 0 8px;font-size:22px}
+.licbox input{display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:14px;border-radius:10px;border:0;font-size:16px}
+.licbox button{width:100%;padding:14px;border-radius:12px;border:0;background:#e9a35b;color:#1a1208;font-size:16px;font-weight:700;margin-top:6px}
+.licbox button:disabled{opacity:.6}
+#licMsg{min-height:22px;margin:12px 0;color:#ffd27a;font-size:14px;line-height:1.5}
+.licbox .note{color:#b7c9bb}
+#tiltBtn{font-size:18px;font-weight:800}
