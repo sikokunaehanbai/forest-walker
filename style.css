@@ -9,6 +9,8 @@ button{font:inherit;cursor:pointer}
 #fabs{position:fixed;right:10px;bottom:calc(34px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;z-index:5}
 #fabs button{width:56px;height:56px;border-radius:50%;border:0;background:#e9a35b;color:#1a1208;font-size:24px;box-shadow:0 3px 10px rgba(0,0,0,.45)}
 #fabs button.on{background:#2f8f4e;color:#fff}
+#fabs button svg{display:block;margin:auto;transition:transform .05s linear}
+#refreshBtn.spin svg{transition:transform .7s ease;transform:rotate(360deg)}
 #sheet,#menu{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;z-index:8;padding:16px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.35);max-height:78vh;overflow:auto}
 #menu{top:0;border-radius:0;max-height:none;background:#f6f3ea;z-index:9;padding-top:calc(16px + env(safe-area-inset-top))}
 .hidden{display:none!important}
@@ -57,3 +59,14 @@ button{font:inherit;cursor:pointer}
 .pinw{display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));z-index:3}
 .pinw svg{display:block}
 .pinw .pt{margin-top:-2px;background:rgba(255,255,255,.95);color:#111;font-size:12px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(0,0,0,.4);order:-1;margin:0 0 2px}
+
+#cross{position:fixed;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#e8281c;border:2.5px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.7);z-index:3;pointer-events:none}
+#hud{position:fixed;right:80px;bottom:calc(40px + env(safe-area-inset-bottom));z-index:4;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+#elev{background:rgba(255,255,255,.93);color:#14301f;font-weight:700;font-size:15px;padding:4px 10px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+#scalebox{background:rgba(255,255,255,.88);padding:4px 26px 5px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+#slab{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#000;line-height:16px;white-space:nowrap}
+#slab span:last-child{margin-right:-22px;position:relative;left:0}
+#sbar{display:flex;height:9px;border:1.5px solid #000;margin-top:2px;box-sizing:content-box}
+#sbar i{flex:1;display:block}
+#sbar i:first-child{background:#000}
+#sbar i:last-child{background:#fff}

@@ -140,12 +140,23 @@
     if (last) { fit(last); setStatus("「" + last.name + "」を表示しました", 3000); }
   }
 
+  // Androidアプリ版: 他のアプリ(LINEなど)で「開く」ように渡されたファイルを受け取る
+  function takeNative() {
+    try {
+      if (!window.FWNative) return;
+      const arr = JSON.parse(window.FWNative.takePending() || "[]"); let last = null;
+      for (const f of arr) { const a = addFile(f.name, f.text); if (a) last = a; }
+      if (last) { fit(last); setStatus("「" + last.name + "」を表示しました", 3000); }
+    } catch (e) {}
+  }
+  window.fwNativeCheck = takeNative;
+
   // 地図の準備ができるまで、層の追加を繰り返し試す
   let tries = 0;
   const iv = setInterval(() => {
     try { initLayers(); } catch (e) { if (++tries < 300) return; }
     clearInterval(iv);
-    if (map.getSource("areas")) { map.on("moveend", toTop); takeShared(); }
+    if (map.getSource("areas")) { map.on("moveend", toTop); takeShared(); takeNative(); }
   }, 200);
   renderList();
 })();

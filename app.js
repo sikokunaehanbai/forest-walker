@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.9";
+const VERSION = "v0.11";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -34,11 +34,10 @@ maplibregl.addProtocol("pmtiles", protocol.tile);
 const last = ls.get("fw-view", { c: [132.9, 33.65], z: 11 });
 const map = new maplibregl.Map({
   container: "map", style, center: last.c, zoom: last.z, maxZoom: 21, minZoom: 5,
-  attributionControl: { compact: true }, dragRotate: false, pitchWithRotate: false,
+  attributionControl: { compact: true }, dragRotate: true, pitchWithRotate: false, touchPitch: false,
   pixelRatio: Math.min(window.devicePixelRatio || 1, 2), maxTileCacheSize: 30, fadeDuration: 100, refreshExpiredTiles: false
 });
-map.touchZoomRotate.disableRotation();
-map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: "metric" }), "bottom-left");
+map.touchZoomRotate.enableRotation();
 
 /* ---------- 市町データ ---------- */
 let MUNIS = [];
@@ -132,7 +131,7 @@ async function copyText(t, btn) {
 let labelMarks = [], lastLabelKey = "";
 function updateLabels() {
   const z = map.getZoom();
-  const key = [z.toFixed(1), map.getCenter().lng.toFixed(4), map.getCenter().lat.toFixed(4), showFude].join();
+  const key = [z.toFixed(1), Math.round(map.getBearing()), map.getCenter().lng.toFixed(4), map.getCenter().lat.toFixed(4), showFude].join();
   if (key === lastLabelKey) return;
   lastLabelKey = key;
   labelMarks.forEach(m => m.remove()); labelMarks = [];
@@ -307,7 +306,9 @@ function resetMap() {
 }
 document.querySelectorAll("#baseSeg button").forEach(x => x.onclick = () => setBase(x.dataset.b));
 document.querySelectorAll("#baseSeg button").forEach(x => x.classList.toggle("on", x.dataset.b === base));
-$("resetMap").onclick = () => { $("menu").classList.add("hidden"); resetMap(); };
+$("refreshBtn").onclick = () => { const b = $("refreshBtn"); b.classList.add("spin"); setTimeout(() => b.classList.remove("spin"), 700); resetMap(); };
+$("northBtn").onclick = () => map.easeTo({ bearing: 0, duration: 400 });
+map.on("rotate", () => { $("northIcon").style.transform = "rotate(" + (-map.getBearing()) + "deg)"; });
 $("chkFude").checked = showFude; $("chkMemo").checked = showMemo; $("fudeColor").value = fudeColor;
 $("chkFude").onchange = e => {
   showFude = e.target.checked; ls.set("fw-showfude", showFude);
@@ -377,6 +378,11 @@ $("saveBase").onclick = async () => {
   }
   {
     for (let z = z0; z <= z1; z++) tilesAt(z, 0, (z, x, y) => list.push(cfg.url.replace("{z}", z).replace("{x}", x).replace("{y}", cfg.tms ? 2 ** z - 1 - y : y)));
+  }
+  // 標高(中心の点の標高表示用)のタイルも一緒に保存する
+  for (const [layer, zz, optional] of [["dem_png", 14, false], ["dem5a_png", 15, true]]) {
+    const tmp = []; tilesAt(zz, 0, (z, x, y) => tmp.push(GSI + layer + "/" + z + "/" + x + "/" + y + ".png"));
+    if (tmp.length <= 300) for (const u of tmp) { list.push(u); if (optional) opt.add(u); }
   }
   const mbEach = cfg.mb || 0.03;
   if (list.length * mbEach > 150) { alert("範囲が広すぎます(" + list.length + "枚・約" + Math.round(list.length * mbEach) + "MB)。地図を拡大してから、もう一度保存してください。"); return; }
