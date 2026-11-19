@@ -1,0 +1,9 @@
+{
+  "appId": "com.sikokunaehanbai.forestwalker",
+  "appName": "フォレストウォーカー",
+  "webDir": "www",
+  "server": {
+    "url": "https://sikokunaehanbai.github.io/forest-walker/",
+    "allowNavigation": ["sikokunaehanbai.github.io"]
+  }
+}

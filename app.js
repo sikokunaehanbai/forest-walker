@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.11";
+const VERSION = "v0.11.2";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -191,7 +191,7 @@ function startLoc() {
       }
     }
     myMarker.setLngLat(myPos); updateAcc(pos.coords.accuracy);
-    setStatus("現在地 ±" + Math.round(pos.coords.accuracy) + "m" + (pos.coords.altitude != null ? "  標高 " + Math.round(pos.coords.altitude) + "m" : ""), 0);
+    setStatus("GPS誤差 ±" + Math.round(pos.coords.accuracy) + "m" + (pos.coords.altitude != null ? "  標高 " + Math.round(pos.coords.altitude) + "m" : ""), 0);
     if (follow) map.easeTo({ center: myPos, duration: 400 });
   }, err => {
     setStatus(err.code === 1 ? "現在地の使用が許可されていません(設定で許可してください)" : "現在地を取得できません", 4000);
