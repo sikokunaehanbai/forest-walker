@@ -1,4 +1,4 @@
-/* ライセンス認証(キー番号と端末の結びつけ)
+/* ライセンス認証(パスワードと端末の結びつけ)+ 起動記録
    LICENSE_URL が空のあいだは、何もしません(認証なしで使えます)。
    認証サーバー(Googleアプリスクリプト)を作ったら、そのアドレスをここに入れます。 */
 (() => {
@@ -14,19 +14,49 @@
   const ov = document.createElement("div");
   ov.id = "lic"; ov.className = "hidden";
   ov.innerHTML = '<div class="licbox"><h2>フォレストウォーカー</h2>' +
-    '<p>ご利用にはキー番号が必要です。</p>' +
-    '<input id="licKey" placeholder="キー番号(例 FW-ABCD-2345)" autocomplete="off" autocapitalize="characters">' +
-    '<input id="licDev" placeholder="この端末の名前(例 山田さんのスマホ)" autocomplete="off">' +
+    '<p>ご利用にはパスワードが必要です。</p>' +
+    '<input id="licKey" placeholder="パスワード" autocomplete="off" autocapitalize="characters">' +
+    '<input id="licDev" placeholder="お名前または端末の名前(例 山田さんのスマホ)" autocomplete="off">' +
     '<button id="licGo">認証する</button><div id="licMsg"></div>' +
-    '<p class="note">キー番号をお持ちでない場合は、管理者へご連絡ください。</p></div>';
+    '<p class="note">「認証する」を押すと、次の情報を管理者(四国苗販売株式会社)へ送ることに同意したものとします。<br>' +
+    '・アプリを開いた日時 ・入力したお名前/端末名 ・端末の識別番号 ・端末の種類とアプリの版 ・開いたときの現在地(緯度・経度・誤差)<br>' +
+    '利用状況の把握と不正利用の防止のために使います。詳しくは <a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a> をご覧ください。</p>' +
+    '<p class="note">パスワードをお持ちでない場合は、管理者へご連絡ください。</p></div>';
   document.body.append(ov);
   const msg = t => { document.getElementById("licMsg").textContent = t || ""; };
 
-  async function ask(action, key, dn) {
-    const q = new URLSearchParams({ action, key, did, dn: dn || "", v: "1" });
+  async function ask(action, key, dn, extra) {
+    const q = new URLSearchParams(Object.assign({ action, key, did, dn: dn || "", v: "1" }, extra || {}));
     const r = await fetch(LICENSE_URL + "?" + q.toString(), { redirect: "follow" });
     return await r.json();
   }
+  /* 起動記録(アプリを開くたびに1回。現在地は、許可されていれば付ける) */
+  const APPV = () => { const e = document.getElementById("ver"); const m = e && /v[\d.]+/.exec(e.textContent); return m ? m[0] : ""; };
+  function devType() {
+    const u = navigator.userAgent || "";
+    const os = /Android/i.test(u) ? "Android" : /iPhone|iPad|iPod/i.test(u) ? "iOS" : /Windows/i.test(u) ? "Windows" : /Mac/i.test(u) ? "Mac" : "その他";
+    return os + (window.Capacitor ? "/APK" : "/ブラウザ");
+  }
+  function getPos() {
+    return new Promise(res => {
+      if (!navigator.geolocation) return res(null);
+      let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+      setTimeout(() => fin(null), 9000);
+      try { navigator.geolocation.getCurrentPosition(p => fin(p.coords), () => fin(null), { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }); } catch (e) { fin(null); }
+    });
+  }
+  async function sendLog() {
+    try {
+      if (sessionStorage.getItem("fw-logged")) return;
+      const st = get(KEY); if (!st || !st.key || !navigator.onLine) return;
+      sessionStorage.setItem("fw-logged", "1");
+      const c = await getPos();
+      const ex = { dt: devType(), av: APPV() };
+      if (c) { ex.lat = c.latitude.toFixed(5); ex.lng = c.longitude.toFixed(5); ex.acc = Math.round(c.accuracy || 0); }
+      await ask("log", st.key, st.dn || "", ex);
+    } catch (e) {}
+  }
+
   function lock(m) { ov.classList.remove("hidden"); msg(m); }
   function unlock() { ov.classList.add("hidden"); renderInfo(); }
 
@@ -57,11 +87,11 @@
   document.getElementById("licGo").onclick = async () => {
     const key = document.getElementById("licKey").value.trim().toUpperCase();
     const dn = document.getElementById("licDev").value.trim();
-    if (!key) { msg("キー番号を入力してください"); return; }
+    if (!key) { msg("パスワードを入力してください"); return; }
     const b = document.getElementById("licGo"); b.disabled = true; msg("確認しています…");
     try {
       const j = await ask("activate", key, dn);
-      if (j.ok) { set(KEY, { key, name: j.name, expires: j.expires, limit: j.limit, last: Date.now() }); unlock(); }
+      if (j.ok) { set(KEY, { key, dn, name: j.name, expires: j.expires, limit: j.limit, last: Date.now() }); unlock(); sendLog(); }
       else msg(j.msg || "認証できませんでした");
     } catch (e) { msg("通信できません。電波のある場所で、もう一度お試しください。"); }
     b.disabled = false;
@@ -75,7 +105,7 @@
     const age = (Date.now() - (st.last || 0)) / 864e5;
     if (navigator.onLine) {
       ask("check", st.key).then(j => {
-        if (j.ok) { st.last = Date.now(); st.name = j.name; st.expires = j.expires; st.limit = j.limit; set(KEY, st); renderInfo(); }
+        if (j.ok) { st.last = Date.now(); st.name = j.name; st.expires = j.expires; st.limit = j.limit; set(KEY, st); renderInfo(); sendLog(); }
         else { localStorage.removeItem(KEY); lock(j.msg); }
       }).catch(() => { if (age > GRACE_DAYS) lock("認証の確認が必要です。通信できる場所で、アプリを開いてください。"); });
     } else if (age > GRACE_DAYS) lock("認証の確認が必要です。通信できる場所で、アプリを開いてください。");
