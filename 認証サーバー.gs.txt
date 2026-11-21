@@ -1,0 +1,81 @@
+/* フォレストウォーカー 認証サーバー(Googleアプリスクリプト) */
+
+function setup() {   // 最初に1回だけ実行します
+  const ss = SpreadsheetApp.getActive();
+  let k = ss.getSheetByName("キー") || ss.insertSheet("キー");
+  let d = ss.getSheetByName("端末") || ss.insertSheet("端末");
+  let g = ss.getSheetByName("起動記録") || ss.insertSheet("起動記録");
+  if (g.getLastRow() === 0) g.appendRow(["日時", "パスワード(キー)", "利用者名", "端末ID", "端末名", "緯度", "経度", "誤差(m)", "アプリ版", "端末の種類"]);
+  if (k.getLastRow() === 0) k.appendRow(["パスワード(キー)", "利用者名", "台数上限", "状態", "有効期限"]);
+  if (d.getLastRow() === 0) d.appendRow(["キー", "端末ID", "端末名", "初回認証", "最終確認"]);
+  if (k.getLastRow() === 1) k.appendRow(["TEST-0001", "テスト", 50, "有効", ""]);
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu("フォレストウォーカー")
+    .addItem("キーを1つ発行する", "newKey").addToUi();
+}
+
+function newKey() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const part = n => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const key = "FW-" + part(4) + "-" + part(4);
+  SpreadsheetApp.getActive().getSheetByName("キー").appendRow([key, "", 2, "有効", ""]);
+}
+
+function doGet(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try { return out(handle(e.parameter || {})); }
+  catch (err) { return out({ ok: false, msg: "サーバーでエラーが起きました" }); }
+  finally { lock.releaseLock(); }
+}
+
+function num(v) { const n = parseFloat(v); return isNaN(n) ? "" : n; }
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function handle(p) {
+  const ss = SpreadsheetApp.getActive();
+  const ks = ss.getSheetByName("キー"), ds = ss.getSheetByName("端末");
+  const key = String(p.key || "").trim(), did = String(p.did || "").trim();
+  if (!key || !did) return { ok: false, msg: "パスワードを入力してください" };
+  const kv = ks.getDataRange().getValues();
+  let row = null;
+  for (let i = 1; i < kv.length; i++) if (String(kv[i][0]).trim().toUpperCase() === key.toUpperCase()) { row = kv[i]; break; }
+  if (!row) return { ok: false, msg: "パスワードが正しくありません" };
+  const dv = ds.getDataRange().getValues();
+  if (p.action === "release") {   // この端末の登録を外す
+    for (let i = dv.length - 1; i >= 1; i--)
+      if (String(dv[i][0]).trim().toUpperCase() === key.toUpperCase() && String(dv[i][1]).trim() === did) ds.deleteRow(i + 1);
+    return { ok: true };
+  }
+  if (String(row[3]).trim() !== "有効") return { ok: false, msg: "このパスワードは無効です。管理者へご連絡ください" };
+  const exp = row[4];
+  if (exp instanceof Date && exp.getTime() + 86400000 < Date.now()) return { ok: false, msg: "このパスワードは有効期限が切れています。管理者へご連絡ください" };
+  const limit = Number(row[2]) || 1;
+  const now = new Date();
+  let mine = 0, count = 0;
+  for (let i = 1; i < dv.length; i++) {
+    if (String(dv[i][0]).trim().toUpperCase() !== key.toUpperCase()) continue;
+    count++;
+    if (String(dv[i][1]).trim() === did) { mine = i + 1; }
+  }
+  const info = { ok: true, name: String(row[1] || ""), limit: limit, expires: exp instanceof Date ? Utilities.formatDate(exp, "Asia/Tokyo", "yyyy/MM/dd") : "" };
+  if (mine) {
+    ds.getRange(mine, 5).setValue(now);
+    if (p.action === "log") {   // 起動記録
+      const g = ss.getSheetByName("起動記録") || ss.insertSheet("起動記録");
+      const dn = String(dv[mine - 1][2] || p.dn || "");
+      g.appendRow([now, String(row[0]), String(row[1] || ""), did, dn, num(p.lat), num(p.lng), num(p.acc), String(p.av || "").slice(0, 20), String(p.dt || "").slice(0, 30)]);
+    }
+    return info;
+  }
+  if (p.action === "log") return { ok: false, msg: "この端末は認証されていません" };
+  if (p.action === "check") return { ok: false, msg: "この端末は認証されていません。もう一度、パスワードを入力してください" };
+  if (count >= limit) return { ok: false, msg: "このパスワードで使える台数(" + limit + "台)に達しています。使わない端末で「認証を解除」するか、管理者へご連絡ください" };
+  ds.appendRow([key, did, String(p.dn || ""), now, now]);
+  return info;
+}

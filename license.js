@@ -2,7 +2,7 @@
    LICENSE_URL が空のあいだは、何もしません(認証なしで使えます)。
    認証サーバー(Googleアプリスクリプト)を作ったら、そのアドレスをここに入れます。 */
 (() => {
-  const LICENSE_URL = "";
+  const LICENSE_URL = "https://script.google.com/macros/s/AKfycbzA3h7GJP45WG9NTvu1VvkoA16cICsZdDOI6qgYHcUi237tZzvJ3Ur-vvD4eqJltEXh/exec";
   if (!LICENSE_URL) return;
 
   const KEY = "fw-lic", DID = "fw-did", GRACE_DAYS = 30;
