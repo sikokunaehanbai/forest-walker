@@ -102,7 +102,7 @@
   }
   function refreshBtn() { const b = $("trackBtn"); if (!b) return; b.textContent = cur ? "■ 記録を止める" : "● 記録を始める"; b.classList.toggle("rec", !!cur); const f = $("trackFab"); if (f) f.classList.toggle("on", !!cur); }
 
-  window.FWTrack = { add, active: () => !!cur, info };
+  window.FWTrack = { add, active: () => !!cur, info, list: () => tracks };
   $("trackBtn").onclick = () => { cur ? stop() : start(); };
   if ($("trackFab")) $("trackFab").onclick = () => { if (cur) { if (confirm("記録を止めますか?(" + info() + ")")) stop(); } else start(); };
 
