@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.16";
+const VERSION = "v0.17";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },

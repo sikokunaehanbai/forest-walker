@@ -33,7 +33,16 @@
       }
       for (const pt of pm.getElementsByTagName("Point")) {
         const c = coords(txt(pt, "coordinates"));
-        if (c.length) feats.push({ type: "Feature", properties: { name }, geometry: { type: "Point", coordinates: c[0] } });
+        if (c.length) {
+          const props = { name }, html = txt(pm, "description");
+          if (html) {
+            const imgs = [...html.matchAll(/<img[^>]*?src=["']([^"']+)["']/gi)].map(m => m[1]);
+            const plain = html.replace(/<br\s*\/?>/gi, "\n").replace(/<img[^>]*>/gi, "").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").trim();
+            if (plain) props.desc = plain.slice(0, 2000);
+            if (imgs.length) props.imgs = imgs;
+          }
+          feats.push({ type: "Feature", properties: props, geometry: { type: "Point", coordinates: c[0] } });
+        }
       }
     }
     return { type: "FeatureCollection", features: feats };
@@ -79,7 +88,18 @@
     map.addLayer({ id: "area-line", type: "line", source: "areas", filter: ["!=", ["geometry-type"], "Point"], layout: { "line-join": "round", "line-cap": "round" },
       paint: { "line-color": AREA_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2.5, 17, 5, 20, 8] } });
     map.addLayer({ id: "area-pt", type: "circle", source: "areas", filter: ["==", ["geometry-type"], "Point"],
-      paint: { "circle-color": AREA_COLOR, "circle-radius": 7, "circle-stroke-color": "#fff", "circle-stroke-width": 2.5 } });
+      paint: { "circle-color": ["case", ["has", "ph"], "#1a73e8", AREA_COLOR], "circle-radius": 8, "circle-stroke-color": "#fff", "circle-stroke-width": 2.5 } });
+    map.on("click", "area-pt", ev => {
+      const f = ev.features && ev.features[0]; if (!f) return;
+      const p = f.properties || {}, ph = typeof p.ph === "string" ? JSON.parse(p.ph) : (p.ph || []);
+      openDlg(`<h3>${esc(p.name || "")}</h3>${p.desc ? `<div style="white-space:pre-wrap;margin:6px 0">${esc(p.desc)}</div>` : ""}<div id="ipThumbs" class="thumbs"></div><div class="act"><button id="ipC">閉じる</button></div>`);
+      $("ipC").onclick = closeDlg;
+      (async () => { for (const id of ph) { const u = await FWStore.get("photo", id).catch(() => null); if (!u || !$("ipThumbs")) continue;
+        const w = document.createElement("div"); w.className = "th"; w.style.width = "100%"; w.style.height = "auto"; w.innerHTML = `<img src="${u}" style="width:100%;height:auto;object-fit:contain">`;
+        w.querySelector("img").onclick = () => viewPhoto(u); $("ipThumbs").append(w); } })();
+    });
+    map.on("mouseenter", "area-pt", () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "area-pt", () => { map.getCanvas().style.cursor = ""; });
     refresh();
   }
 
@@ -88,7 +108,7 @@
     const m = $("menu"); if (m) m.classList.add("hidden");
     map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 50, maxZoom: 18, duration: 900 });
   }
-  function addFile(name, text) {
+  function addFile(name, text, photos) {
     let fc;
     const t = text.replace(/^﻿/, "").trim();
     try { fc = t.startsWith("{") ? parseGeo(t) : parseKml(t); }
@@ -98,14 +118,65 @@
     if (!b || b.bad) { setStatus("「" + name + "」は緯度経度(WGS84)ではないため表示できません。QGISで『座標系=EPSG:4326』にして書き出してください", 7000); return null; }
     const base = name.replace(/\.[^.]+$/, "");
     const a = { id: "a" + Date.now() + Math.floor(Math.random() * 1000), name: base || "施業地", on: true, fc };
+    if (photos) attachPhotos(a, photos);
+    for (const ft of fc.features) if (ft.properties) delete ft.properties.imgs;
     areas.push(a);
-    if (!save()) { areas.pop(); return null; }
+    if (!save()) { areas.pop(); dropPhotos(a); return null; }
     refresh();
     return a;
   }
+  // ---- KMZ(ZIP)を開く ----
+  async function inflate(u8) {
+    const ds = new DecompressionStream("deflate-raw");
+    return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer());
+  }
+  async function unzip(buf) {
+    const v = new DataView(buf), u8 = new Uint8Array(buf), dec = new TextDecoder(), out = {};
+    let e = -1; for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65600); i--) if (v.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error("zip");
+    let p = v.getUint32(e + 16, true); const n = v.getUint16(e + 10, true);
+    for (let k = 0; k < n; k++) {
+      if (v.getUint32(p, true) !== 0x02014b50) break;
+      const meth = v.getUint16(p + 10, true), cs = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), el = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), lho = v.getUint32(p + 42, true);
+      const name = dec.decode(u8.subarray(p + 46, p + 46 + nl));
+      const ds = lho + 30 + v.getUint16(lho + 26, true) + v.getUint16(lho + 28, true);
+      const raw = u8.subarray(ds, ds + cs);
+      if (!name.endsWith("/")) out[name] = meth === 0 ? raw : meth === 8 ? await inflate(raw) : null;
+      p += 46 + nl + el + cl;
+    }
+    return out;
+  }
+  const b64 = u8 => { let s = ""; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); };
+  function mimeOf(n) { return /\.png$/i.test(n) ? "image/png" : /\.gif$/i.test(n) ? "image/gif" : "image/jpeg"; }
+  // 写真は端末内の保管庫に入れ、境界データ側には「写真の札(キー)」だけ持たせる
+  const pendingPh = new Map();
+  function attachPhotos(a, files) {
+    a.ph = [];
+    for (const ft of a.fc.features) {
+      const imgs = ft.properties && ft.properties.imgs; if (!imgs) continue;
+      for (const src of imgs) {
+        const key = decodeURIComponent(src).replace(/^\.?\//, "");
+        const data = files[key] || files[Object.keys(files).find(k => k.endsWith("/" + key.split("/").pop())) || ""];
+        if (!data) continue;
+        const id = "i" + a.id + "_" + a.ph.length;
+        pendingPh.set(id, "data:" + mimeOf(key) + ";base64," + b64(data));
+        a.ph.push(id); (ft.properties.ph = ft.properties.ph || []).push(id);
+      }
+    }
+    const save2 = a.ph.map(id => FWStore.put("photo", id, pendingPh.get(id)).then(() => pendingPh.delete(id)));
+    Promise.all(save2).catch(() => setStatus("写真を保存できませんでした(容量不足)", 4000));
+  }
+  function dropPhotos(a) { (a.ph || []).forEach(id => FWStore.del("photo", id).catch(() => {})); }
+  async function addKmz(f) {
+    let files;
+    try { files = await unzip(await f.arrayBuffer()); } catch (e) { setStatus("「" + f.name + "」を開けませんでした", 5000); return null; }
+    const kn = Object.keys(files).find(k => /(^|\/)doc\.kml$/i.test(k)) || Object.keys(files).find(k => /\.kml$/i.test(k));
+    if (!kn) { setStatus("「" + f.name + "」にKMLが入っていません", 5000); return null; }
+    return addFile(f.name, new TextDecoder().decode(files[kn]), files);
+  }
   async function importFiles(files) {
     let last = null;
-    for (const f of files) { const a = addFile(f.name, await f.text()); if (a) last = a; }
+    for (const f of files) { const a = /\.kmz$/i.test(f.name) ? await addKmz(f) : addFile(f.name, await f.text()); if (a) last = a; }
     if (last) { fit(last); setStatus("「" + last.name + "」を表示しました", 3000); }
   }
 
@@ -119,7 +190,7 @@
       const sp = document.createElement("span"); sp.textContent = a.name;
       const go = document.createElement("button"); go.textContent = "表示"; go.onclick = () => fit(a);
       const del = document.createElement("button"); del.textContent = "削除";
-      del.onclick = () => { if (confirm("「" + a.name + "」を削除します。よろしいですか?")) { areas = areas.filter(x => x !== a); save(); refresh(); } };
+      del.onclick = () => { if (confirm("「" + a.name + "」を削除します。よろしいですか?")) { dropPhotos(a); areas = areas.filter(x => x !== a); save(); refresh(); } };
       row.append(cb, sp, go, del); box.append(row);
     }
   }
