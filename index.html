@@ -60,6 +60,10 @@
   <label class="row">筆界の色
     <select id="fudeColor"><option value="#ffe14d">黄</option><option value="#ff5a3c">赤</option><option value="#ffffff">白</option><option value="#1c5d99">青</option></select>
   </label>
+  <h3>トラッキング(歩いた道すじ)</h3>
+  <p class="note">「記録を始める」を押して歩くと、通った道が青い線で残ります。記録中は画面を消さないでください(消すと止まることがあります)。</p>
+  <button class="wide" id="trackBtn">● 記録を始める</button>
+  <div id="trackList"></div>
   <h3>施業地(境界データ)</h3>
   <p class="note">QGISで作ったKML(またはGeoJSON)を読み込むと、境界が赤い太線で表示されます。</p>
   <button class="wide" id="areaBtn">KML / GeoJSON を読み込む</button>
@@ -71,7 +75,7 @@
   <div id="muniList"></div>
   <h3>メモ一覧(<span id="memoCount">0</span>件)</h3>
   <div id="memoList"></div>
-  <button class="wide" id="exportMemo">メモを書き出す(コピー)</button>
+  <button class="wide" id="exportMemo">メモを書き出す(コピー・写真は含まれません)</button>
   <button class="wide" id="importMemo">メモを取り込む(貼り付け)</button>
   <p class="note" id="ver"></p>
 </div>
@@ -80,8 +84,10 @@
 
 <script src="lib/maplibre-gl.js"></script>
 <script src="lib/pmtiles.js"></script>
+<script src="store.js"></script>
 <script src="app.js"></script>
 <script src="kml.js"></script>
+<script src="track.js"></script>
 <script src="hud.js"></script>
 <script src="terrain.js"></script>
 <script src="license.js"></script>

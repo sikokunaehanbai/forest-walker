@@ -43,6 +43,8 @@ assert "</activity>" in m
 m = m.replace("</activity>", filters + "        </activity>", 1)
 perms = '''    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 '''
 m = m.replace('<uses-permission android:name="android.permission.INTERNET" />',
               '<uses-permission android:name="android.permission.INTERNET" />\n' + perms, 1)

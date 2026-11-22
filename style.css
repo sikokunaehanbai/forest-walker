@@ -82,3 +82,10 @@ button{font:inherit;cursor:pointer}
 .licbox .note{color:#b7c9bb;font-size:12px;line-height:1.6;text-align:left}
 .licbox .note a{color:#ffd27a}
 #tiltBtn{font-size:18px;font-weight:800}
+
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.thumbs .th{position:relative;width:84px;height:84px}
+.thumbs .th img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #bbb}
+.thumbs .th b{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;font-size:15px;line-height:22px;text-align:center}
+#trackBtn.rec{background:#c0392b}
+.act button.alt{background:#2f8f4e}

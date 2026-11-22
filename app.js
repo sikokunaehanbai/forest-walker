@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.14";
+const VERSION = "v0.15";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -191,7 +191,8 @@ function startLoc() {
       }
     }
     myMarker.setLngLat(myPos); updateAcc(pos.coords.accuracy);
-    setStatus("GPS誤差 ±" + Math.round(pos.coords.accuracy) + "m" + (pos.coords.altitude != null ? "  標高 " + Math.round(pos.coords.altitude) + "m" : ""), 0);
+    if (window.FWTrack) FWTrack.add(pos);
+    setStatus((window.FWTrack && FWTrack.active() ? "● 記録中 " + FWTrack.info() + "  " : "") + "GPS誤差 ±" + Math.round(pos.coords.accuracy) + "m" + (pos.coords.altitude != null ? "  標高 " + Math.round(pos.coords.altitude) + "m" : ""), 0);
     if (follow) map.easeTo({ center: myPos, duration: 400 });
   }, err => {
     setStatus(err.code === 1 ? "現在地の使用が許可されていません(設定で許可してください)" : "現在地を取得できません", 4000);
@@ -205,6 +206,7 @@ function stopLoc() {
 $("locBtn").onclick = () => {
   if (watchId == null) { startLoc(); follow = true; $("locBtn").classList.add("on"); const t = setInterval(() => { if (myPos) { map.flyTo({ center: myPos, zoom: Math.max(map.getZoom(), 16) }); clearInterval(t); } }, 300); setTimeout(() => clearInterval(t), 20000); }
   else if (!follow) { follow = true; $("locBtn").classList.add("on"); if (myPos) map.flyTo({ center: myPos, zoom: Math.max(map.getZoom(), 16) }); }
+  else if (window.FWTrack && FWTrack.active()) { follow = false; $("locBtn").classList.remove("on"); setStatus("記録中のため、現在地は表示したままです", 2500); }
   else { stopLoc(); if (myMarker) { myMarker.remove(); myMarker = null; } setStatus("", 0); myPos = null; }
 };
 map.on("dragstart", () => { if (follow) { follow = false; $("locBtn").classList.remove("on"); } });
@@ -229,7 +231,7 @@ function renderMemos() {
     if (!isFinite(m.lng) || !isFinite(m.lat)) continue;
     const el = document.createElement("div"); el.className = "pinw";
     const col = m.color || COLORS[0];
-    const t = (m.text || "").replace(/\s+/g, " ").trim();
+    const t = ((m.photos && m.photos.length ? "📷" : "") + (m.text || "")).replace(/\s+/g, " ").trim();
     el.innerHTML = `<svg viewBox="0 0 28 40" width="34" height="48"><path d="M14 38 C14 38 2 24 2 14 A12 12 0 0 1 26 14 C26 24 14 38 14 38Z" fill="${col}" stroke="#fff" stroke-width="2.5"/><circle cx="14" cy="14" r="4.5" fill="#fff"/></svg>` +
       (t ? `<span class="pt">${esc(t.length > 14 ? t.slice(0, 14) + "…" : t)}</span>` : "");
     el.onclick = ev => { ev.stopPropagation(); memoDialog(m.lng, m.lat, m); };
@@ -253,23 +255,63 @@ function openDlg(html) { $("dlgBox").innerHTML = html; $("dlg").classList.remove
 function closeDlg() { $("dlg").classList.add("hidden"); }
 $("dlg").onclick = e => { if (e.target.id === "dlg") closeDlg(); };
 
+function viewPhoto(src) {
+  const d = document.createElement("div");
+  d.style.cssText = "position:fixed;inset:0;background:#000;z-index:40;display:flex;align-items:center;justify-content:center";
+  d.innerHTML = `<img src="${src}" style="max-width:100%;max-height:100%"><div style="position:absolute;top:10px;right:14px;color:#fff;font-size:34px;padding:6px">×</div>`;
+  d.onclick = () => d.remove(); document.body.append(d);
+}
 function memoDialog(lng, lat, m, pre) {
   let color = m ? m.color : COLORS[0];
   const dateStr = m ? new Date(m.t).toLocaleString("ja-JP") : "";
+  const photos = m && m.photos ? m.photos.slice() : [];      // 写真のID
+  const fresh = {};                                          // まだ保存していない写真 {id: dataURL}
+  const removed = [];
   openDlg(`<h3>${m ? "メモを編集" : "メモを追加"}</h3>
     <textarea id="mText" placeholder="例:境界杭あり/ここから急斜面/要確認">${esc(m ? m.text : (pre || ""))}</textarea>
     <div class="colors">${COLORS.map(c => `<i data-c="${c}" style="background:${c}" class="${c === color ? "on" : ""}"></i>`).join("")}</div>
+    <div class="act"><button class="alt" id="pCam">📷 撮影</button><button class="alt" id="pPick">🖼 選ぶ</button></div>
+    <input type="file" id="pFileCam" accept="image/*" capture="environment" hidden>
+    <input type="file" id="pFilePick" accept="image/*" multiple hidden>
+    <div id="pThumbs" class="thumbs"></div>
     <div class="note">${lat.toFixed(6)}, ${lng.toFixed(6)} ${dateStr}</div>
     <div class="act"><button class="alt" id="mSave">保存</button>${m ? '<button class="warn" id="mDel">削除</button>' : ""}<button id="mCancel">閉じる</button></div>`);
   document.querySelectorAll(".colors i").forEach(i => i.onclick = () => { color = i.dataset.c; document.querySelectorAll(".colors i").forEach(x => x.classList.toggle("on", x === i)); });
+  async function drawThumbs() {
+    const box = $("pThumbs"); if (!box) return; box.innerHTML = "";
+    for (const id of photos) {
+      const src = fresh[id] || await FWStore.get("photo", id).catch(() => null); if (!src) continue;
+      const w = document.createElement("div"); w.className = "th";
+      w.innerHTML = `<img src="${src}"><b>×</b>`;
+      w.querySelector("img").onclick = () => viewPhoto(src);
+      w.querySelector("b").onclick = () => { if (!confirm("この写真を外しますか?")) return; photos.splice(photos.indexOf(id), 1); if (!fresh[id]) removed.push(id); delete fresh[id]; drawThumbs(); };
+      box.append(w);
+    }
+  }
+  async function addFiles(fs) {
+    for (const f of fs) {
+      try { const d = await FWStore.shrink(f); const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); fresh[id] = d; photos.push(id); }
+      catch (e) { alert("写真を読み込めませんでした"); }
+    }
+    drawThumbs();
+  }
+  $("pCam").onclick = () => $("pFileCam").click();
+  $("pPick").onclick = () => $("pFilePick").click();
+  $("pFileCam").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; addFiles(fs); };
+  $("pFilePick").onchange = e => { const fs = [...e.target.files]; e.target.value = ""; addFiles(fs); };
+  drawThumbs();
   $("mCancel").onclick = closeDlg;
-  $("mSave").onclick = () => {
+  $("mSave").onclick = async () => {
     const text = $("mText").value.trim();
-    if (m) { m.text = text; m.color = color; }
-    else memos.push({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), lng, lat, text, color, t: Date.now() });
+    try {
+      for (const id in fresh) await FWStore.put("photo", id, fresh[id]);
+      for (const id of removed) await FWStore.del("photo", id);
+    } catch (e) { alert("写真を保存できませんでした(端末の空き容量を確認してください)"); return; }
+    if (m) { m.text = text; m.color = color; m.photos = photos; }
+    else memos.push({ id: "m" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), lng, lat, text, color, photos, t: Date.now() });
     saveMemos(); renderMemos(); closeDlg(); closeSheet();
   };
-  if (m) $("mDel").onclick = () => { if (!confirm("このメモを削除しますか?")) return; memos = memos.filter(x => x.id !== m.id); saveMemos(); renderMemos(); closeDlg(); };
+  if (m) $("mDel").onclick = () => { if (!confirm("このメモを削除しますか?(写真も消えます)")) return; (m.photos || []).forEach(id => FWStore.del("photo", id).catch(() => {})); memos = memos.filter(x => x.id !== m.id); saveMemos(); renderMemos(); closeDlg(); };
 }
 $("memoBtn").onclick = () => {
   if (myPos) {
