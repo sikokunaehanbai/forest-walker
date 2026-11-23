@@ -76,6 +76,12 @@
   <h3>メモ一覧(<span id="memoCount">0</span>件)</h3>
   <div id="memoList"></div>
   <button class="wide" id="exportKmz">メモ・記録をKMZで書き出す(写真つき)</button>
+  <div id="shareBox" class="hidden">
+    <h3>共有フォルダ(社内)</h3>
+    <p class="note">写真つきのメモと記録を、会社の共有フォルダ(Googleドライブ「フォレストウォーカーメモ」)へ送ります。送られた記録は、社内の人が読み込んで地図で見られます。</p>
+    <button class="wide" id="shareUp">共有フォルダへ送る(写真つき)</button>
+    <button class="wide" id="shareDown">共有フォルダから読み込む</button>
+  </div>
   <button class="wide" id="exportMemo">メモを書き出す(コピー・写真は含まれません)</button>
   <button class="wide" id="importMemo">メモを取り込む(貼り付け)</button>
   <p class="note" id="ver"></p>
@@ -93,5 +99,6 @@
 <script src="hud.js"></script>
 <script src="terrain.js"></script>
 <script src="license.js"></script>
+<script src="share.js"></script>
 </body>
 </html>

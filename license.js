@@ -57,6 +57,8 @@
     } catch (e) {}
   }
 
+  window.FWLic = { url: LICENSE_URL, did: () => did, st: () => get(KEY), member: () => { const s = get(KEY); return !!(s && s.grp === "社内"); } };
+
   function lock(m) { ov.classList.remove("hidden"); msg(m); }
   function unlock() { ov.classList.add("hidden"); renderInfo(); }
 
@@ -94,7 +96,7 @@
       const old = get(KEY);
       if (old && old.key === key && !old.dn && navigator.onLine) await ask("release", key);   // 名前が空だった端末は、登録し直して名前を入れる
       const j = await ask("activate", key, dn);
-      if (j.ok) { set(KEY, { key, dn, name: j.name, expires: j.expires, limit: j.limit, last: Date.now() }); unlock(); sendLog(); }
+      if (j.ok) { set(KEY, { key, dn, name: j.name, expires: j.expires, limit: j.limit, grp: j.grp || "", last: Date.now() }); unlock(); sendLog(); }
       else msg(j.msg || "認証できませんでした");
     } catch (e) { msg("通信できません。電波のある場所で、もう一度お試しください。"); }
     b.disabled = false;
@@ -109,7 +111,7 @@
     const age = (Date.now() - (st.last || 0)) / 864e5;
     if (navigator.onLine) {
       ask("check", st.key).then(j => {
-        if (j.ok) { st.last = Date.now(); st.name = j.name; st.expires = j.expires; st.limit = j.limit; set(KEY, st); renderInfo(); sendLog(); }
+        if (j.ok) { st.last = Date.now(); st.name = j.name; st.expires = j.expires; st.limit = j.limit; st.grp = j.grp || ""; set(KEY, st); renderInfo(); sendLog(); }
         else { localStorage.removeItem(KEY); lock(j.msg); }
       }).catch(() => { if (age > GRACE_DAYS) lock("認証の確認が必要です。通信できる場所で、アプリを開いてください。"); });
     } else if (age > GRACE_DAYS) lock("認証の確認が必要です。通信できる場所で、アプリを開いてください。");

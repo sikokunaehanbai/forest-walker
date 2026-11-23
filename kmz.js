@@ -57,6 +57,8 @@
     return { blob: zip(files), nMemo: ms.length, nPhoto, nTrack: trs.length };
   }
 
+  window.FWKmz = { build, p2 };
+
   async function run(onlyToday) {
     closeDlg(); setStatus("書き出しを作っています…", 0);
     let r;

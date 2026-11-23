@@ -180,6 +180,8 @@
     if (last) { fit(last); setStatus("「" + last.name + "」を表示しました", 3000); }
   }
 
+  window.FWImport = importFiles;
+
   function renderList() {
     const box = $("areaList"); if (!box) return;
     box.innerHTML = areas.length ? "" : '<div class="note">まだ読み込んでいません。</div>';
