@@ -16,7 +16,7 @@
   ov.innerHTML = '<div class="licbox"><h2>フォレストウォーカー</h2>' +
     '<p>ご利用にはパスワードが必要です。</p>' +
     '<input id="licKey" placeholder="パスワード" autocomplete="off" autocapitalize="characters">' +
-    '<input id="licDev" placeholder="お名前または端末の名前(例 山田さんのスマホ)" autocomplete="off">' +
+    '<input id="licDev" placeholder="お名前(必須)例 山田太郎" autocomplete="off">' +
     '<button id="licGo">認証する</button><div id="licMsg"></div>' +
     '<p class="note">「認証する」を押すと、次の情報を管理者(四国苗販売株式会社)へ送ることに同意したものとします。<br>' +
     '・アプリを開いた日時 ・入力したお名前/端末名 ・端末の識別番号 ・端末の種類とアプリの版 ・開いたときの現在地(緯度・経度・誤差)<br>' +
@@ -88,8 +88,11 @@
     const key = document.getElementById("licKey").value.trim().toUpperCase();
     const dn = document.getElementById("licDev").value.trim();
     if (!key) { msg("パスワードを入力してください"); return; }
+    if (dn.length < 2) { msg("お名前を入力してください(誰が使っているか分かるようにするためです)"); return; }
     const b = document.getElementById("licGo"); b.disabled = true; msg("確認しています…");
     try {
+      const old = get(KEY);
+      if (old && old.key === key && !old.dn && navigator.onLine) await ask("release", key);   // 名前が空だった端末は、登録し直して名前を入れる
       const j = await ask("activate", key, dn);
       if (j.ok) { set(KEY, { key, dn, name: j.name, expires: j.expires, limit: j.limit, last: Date.now() }); unlock(); sendLog(); }
       else msg(j.msg || "認証できませんでした");
@@ -100,6 +103,7 @@
   /* 起動時 */
   const st = get(KEY);
   if (!st || !st.key) lock();
+  else if (!st.dn && navigator.onLine) { document.getElementById("licKey").value = st.key; lock("お名前を入力して、もう一度「認証する」を押してください"); }
   else {
     unlock();
     const age = (Date.now() - (st.last || 0)) / 864e5;
