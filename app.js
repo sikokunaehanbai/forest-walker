@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.20";
+const VERSION = "v0.21";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -94,8 +94,28 @@ function dist(a, b) {
 function fmtDist(m) { return m < 1000 ? Math.round(m) + " m" : (m / 1000).toFixed(2) + " km"; }
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-function showParcel(f) { showParcelInfo(f.properties, geomCenter(f.geometry)); }
-function showParcelInfo(p, ctr) {
+function showParcel(f) { showParcelInfo(f.properties, geomCenter(f.geometry), String(f.source || "").replace(/^s-/, "")); }
+function fmtArea(m) {
+  if (!m) return "1 ㎡未満";
+  const t = Math.round(m).toLocaleString("ja-JP") + " ㎡";
+  return m >= 1000 ? t + "(" + (m / 10000).toFixed(m >= 100000 ? 2 : 3) + " ha)" : t;
+}
+let areaTok = 0;
+async function showArea(code, p, ctr, tok) {
+  const el = $("pArea"); if (!el) return;
+  let txt = "不明";
+  try {
+    const idx = await loadIdx(code); let best = -1, bd = 1e9, ba = null;
+    for (const a of idx) {
+      if (a.o !== (p.o || "") || (a.d || "") !== (p.d || "") || (a.k || "") !== (p.k || "") || !a.m) continue;
+      for (let i = 0; i < a.c.length; i++) if (a.c[i] === p.c) { const d = (a.x[i] - ctr[0]) ** 2 + (a.y[i] - ctr[1]) ** 2; if (d < bd) { bd = d; best = i; ba = a; } }
+    }
+    if (ba) txt = fmtArea(ba.m[best]);
+    else txt = "不明(データなし)";
+  } catch (e) { txt = "不明(通信できません)"; }
+  if (tok === areaTok && $("pArea")) { $("pArea").textContent = txt; const n = $("pAreaNote"); if (n && txt.indexOf("不明") !== 0) n.classList.remove("hidden"); }
+}
+function showParcelInfo(p, ctr, code) {
   sel = { o: p.o || "", k: p.k || "", c: p.c || "" };
   applySel();
   const place = [p.o, p.d, p.k].filter(Boolean).join(" ");
@@ -104,13 +124,16 @@ function showParcelInfo(p, ctr) {
   if (p.k) rows += `<b>小字</b><span>${esc(p.k)}</span>`;
   rows += `<b>地番</b><span>${esc(p.c || "-")}</span>`;
   if (p.a) rows += `<b>精度区分</b><span>${esc(p.a)}</span>`;
+  if (code) rows += `<b>面積</b><span id="pArea">計算中…</span>`;
   if (myPos) rows += `<b>現在地から</b><span>${fmtDist(dist(myPos, ctr))}</span>`;
   rows += `<b>座標</b><span>${ctr[1].toFixed(6)}, ${ctr[0].toFixed(6)}</span></div>`;
   $("sheetBody").innerHTML = `<h2>${esc(place)} ${esc(p.c || "")}</h2><div class="sub">筆の情報</div>${rows}
+    ${code ? '<div class="note hidden" id="pAreaNote">面積は、地図の図形から計算した参考値です。登記簿の面積とは異なることがあります。</div>' : ""}
     <div class="act"><button class="alt" id="actMemo">この筆にメモ</button><button id="actCopy">地番をコピー</button></div>`;
   $("sheet").classList.remove("hidden");
   $("actMemo").onclick = () => memoDialog(ctr[0], ctr[1], null, place + " " + (p.c || "") + "\n");
   $("actCopy").onclick = () => copyText(place + " " + (p.c || ""), $("actCopy"));
+  if (code) showArea(code, p, ctr, ++areaTok);
 }
 function closeSheet() { $("sheet").classList.add("hidden"); sel = null; applySel(); }
 $("sheetClose").onclick = closeSheet;
@@ -457,10 +480,10 @@ async function loadIdx(code) {
   const r = await fetch("search/" + code + ".json");
   if (!r.ok) throw new Error("index");
   const j = await r.json();
-  IDX[code] = j.a.map(([o, d, k, c, dx, dy]) => {
+  IDX[code] = j.a.map(([o, d, k, c, dx, dy, m]) => {
     const x = new Array(dx.length), y = new Array(dy.length); let ax = 0, ay = 0;
     for (let i = 0; i < dx.length; i++) { ax += dx[i]; ay += dy[i]; x[i] = ax / 1e5; y[i] = ay / 1e5; }
-    return { o, d, k, c, cn: c.map(norm), x, y, name: o + d + k };
+    return { o, d, k, c, m, cn: c.map(norm), x, y, name: o + d + k };
   });
   return IDX[code];
 }
@@ -535,7 +558,7 @@ function gotoParcel(p, ctr) {
   $("sp").classList.add("hidden"); $("spInput").blur();
   if (follow) { follow = false; $("locBtn").classList.remove("on"); }
   map.flyTo({ center: ctr, zoom: Math.max(map.getZoom(), 18), duration: 900 });
-  showParcelInfo(p, ctr);
+  showParcelInfo(p, ctr, $("spMuni").value);
 }
 $("searchBtn").onclick = openSearch;
 $("spClose").onclick = () => { $("sp").classList.add("hidden"); $("spInput").blur(); };
