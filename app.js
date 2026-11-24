@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.23";
+const VERSION = "v0.24";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -34,7 +34,7 @@ maplibregl.addProtocol("pmtiles", protocol.tile);
 const last = ls.get("fw-view", { c: [132.9, 33.65], z: 11 });
 const map = new maplibregl.Map({
   container: "map", style, center: last.c, zoom: last.z, maxZoom: 21, minZoom: 5,
-  attributionControl: { compact: true }, dragRotate: true, pitchWithRotate: true, maxPitch: 80, touchPitch: false,
+  attributionControl: { compact: true }, dragRotate: true, pitchWithRotate: true, maxPitch: 80, touchPitch: true,
   pixelRatio: Math.min(window.devicePixelRatio || 1, 2), maxTileCacheSize: 30, fadeDuration: 100, refreshExpiredTiles: false
 });
 map.touchZoomRotate.enableRotation();
