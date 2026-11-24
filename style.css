@@ -89,3 +89,10 @@ button{font:inherit;cursor:pointer}
 .thumbs .th b{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:#c0392b;color:#fff;font-size:15px;line-height:22px;text-align:center}
 #trackBtn.rec{background:#c0392b}
 .act button.alt{background:#2f8f4e}
+
+#measBar{position:fixed;left:8px;right:8px;top:calc(60px + env(safe-area-inset-top));z-index:6;background:rgba(20,48,31,.94);color:#fff;border-radius:12px;padding:10px 12px;font-size:15px;line-height:1.6;box-shadow:0 3px 12px rgba(0,0,0,.5)}
+#measBar.hidden{display:none}
+#measBar b{color:#ffd23f;font-size:17px}
+#measBar .mrow{display:flex;gap:8px;margin-top:6px}
+#measBar .mrow button{flex:1;height:40px;border:0;border-radius:8px;background:#e9a35b;color:#1a1208;font-size:14px}
+#measBar #measEnd{background:#fff}

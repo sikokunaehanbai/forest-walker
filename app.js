@@ -1,5 +1,5 @@
 "use strict";
-const VERSION = "v0.21";
+const VERSION = "v0.22";
 const $ = id => document.getElementById(id);
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -139,6 +139,7 @@ function closeSheet() { $("sheet").classList.add("hidden"); sel = null; applySel
 $("sheetClose").onclick = closeSheet;
 
 map.on("click", e => {
+  if (window.FWMeasure && FWMeasure.on()) return;
   const ids = fillLayerIds();
   if (!ids.length) return;
   const fs = map.queryRenderedFeatures(e.point, { layers: ids });
